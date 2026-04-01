@@ -13,47 +13,71 @@ function getCookies(domain, name, callback) {
 
 browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.url) {
-    browser.tabs.sendMessage(
-      tabId,
-      {
+    browser.tabs
+      .sendMessage(tabId, {
         message: "urlChanged",
         url: changeInfo.url,
-      },
-      (response) => {
-        if (browser.runtime.lastError) {
-          console.warn(
-            "Could not send message to content script:",
-            browser.runtime.lastError.message,
-          );
-        } else {
-          console.log("Message sent successfully:", response);
-        }
-      },
-    );
+      })
+      .then((response) => {
+        console.log("Message sent successfully: ", response);
+      })
+      .catch(onError);
   }
 });
 
-browser.webRequest.onHeadersReceived.addListener(
+function onError(error) {
+  console.error(`Error: ${error}`);
+}
+
+browser.webRequest.onBeforeSendHeaders.addListener(
   function (details) {
-    let responseHeaders = details.responseHeaders;
+    let requestHeaders = details.requestHeaders.filter(
+      (h) =>
+        !["sec-fetch-dest", "sec-fetch-mode", "sec-fetch-site"].includes(
+          h.name.toLowerCase(),
+        ),
+    );
 
-    responseHeaders.push({
-      name: "Access-Control-Allow-Origin",
-      value: "https://www.meta.com"
-    });
+    requestHeaders.push({ name: "sec-fetch-dest", value: "document" });
+    requestHeaders.push({ name: "sec-fetch-mode", value: "navigate" });
+    requestHeaders.push({ name: "sec-fetch-site", value: "none" });
 
-    responseHeaders.push({
-      name: "Access-Control-Allow-Methods",
-      value: "*"
-    });
-
-    responseHeaders.push({
-      name: "Access-Control-Allow-Headers",
-      value: "*"
-    });
-
-    return { responseHeaders };
+    return { requestHeaders };
   },
-  { urls: ["*://securecdn.oculus.com/*"] },
-  ["blocking", "responseHeaders"]
+  { urls: ["*://securecdn.oculus.com/*", "*://store.meta.com/*"] },
+  ["blocking", "requestHeaders", "extraHeaders"],
 );
+
+browser.webRequest.onHeadersReceived.addListener(
+  setHeaders,
+  { urls: ["*://securecdn.oculus.com/*", "*://store.meta.com/*"] },
+  ["blocking", "responseHeaders", "extraHeaders"],
+);
+
+function setHeaders(details) {
+  let responseHeaders = details.responseHeaders.filter(
+    (h) =>
+      ![
+        "access-control-allow-origin",
+        "access-control-allow-methods",
+        "access-control-allow-headers",
+      ].includes(h.name.toLowerCase()),
+  );
+  console.log(responseHeaders);
+  responseHeaders.push({
+    name: "Access-Control-Allow-Origin",
+    value: "*",
+  });
+
+  responseHeaders.push({
+    name: "Access-Control-Allow-Methods",
+    value: "*",
+  });
+
+  responseHeaders.push({
+    name: "Access-Control-Allow-Headers",
+    value: "*",
+  });
+
+  return { responseHeaders: responseHeaders };
+}

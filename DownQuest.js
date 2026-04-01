@@ -125,10 +125,25 @@ function createFloatingButtons() {
       modalTitle: "App Downgrade Options",
       contentFunction: displayDowngradeOptions,
     },
+    {
+      text: "Credits",
+      clickHandler: handleCreditsButtonClick,
+      modalTitle: "Credits",
+      contentFunction: displayCredits,
+      firstInfo: ["ptrpaws", "https://github.com/ptrpaws/"],
+      secondInfo: ["xfi0", "https://github.com/xfi0/"],
+    },
   ];
 
   buttonsConfig.forEach(
-    ({ text, clickHandler, modalTitle, contentFunction }) => {
+    ({
+      text,
+      clickHandler,
+      modalTitle,
+      contentFunction,
+      firstInfo,
+      secondInfo,
+    }) => {
       const button = document.createElement("button");
       button.className = "custom-button custom-floating-button";
       button.innerText = text;
@@ -138,7 +153,7 @@ function createFloatingButtons() {
           return;
         }
         await clickHandler();
-        showModal(modalTitle, contentFunction, true);
+        showModal(modalTitle, contentFunction, true, firstInfo, secondInfo);
       });
       container.appendChild(button);
     },
@@ -149,6 +164,35 @@ function createFloatingButtons() {
 
 async function handleDLCButtonClick() {
   if (!dlcDataCache) await fetchDLCData();
+}
+
+function handleCreditsButtonClick() {}
+
+function displayCredits(header, content, closeModal, firstInfo, secondInfo) {
+  header.textContent = "";
+  header.appendChild(document.createTextNode("Credits:"));
+
+  [firstInfo, secondInfo].forEach((info, i) => {
+    const creditContainer = document.createElement("div");
+    const creditInfo = document.createElement("p");
+    const creditButton = document.createElement("button");
+
+    creditInfo.innerText = info[0];
+    creditButton.innerText = "GitHub";
+
+    creditContainer.classList.add("list-item");
+    creditInfo.classList.add("list-item-info");
+    creditButton.classList.add("custom-button");
+
+    creditContainer.id = "credit-container-" + i;
+    creditInfo.id = "credit-info-" + i;
+    creditButton.id = "credit-button-" + i;
+
+    creditButton.onclick = () => window.open(info[1], "_blank");
+
+    creditContainer.append(creditInfo, creditButton);
+    content.appendChild(creditContainer);
+  });
 }
 
 async function handleDowngradeButtonClick() {
@@ -437,7 +481,13 @@ function createChannelDropdownToggle(header, versions) {
 
 const zIndexBase = 1000;
 
-function showModal(title, contentFunction, closeable = true) {
+function showModal(
+  title,
+  contentFunction,
+  closeable = true,
+  firstInfo = null,
+  secondInfo = null,
+) {
   const modalCount = document.querySelectorAll(".custom-modal").length;
 
   const modalZIndex = zIndexBase + modalCount * 2;
@@ -468,7 +518,7 @@ function showModal(title, contentFunction, closeable = true) {
     backdrop.remove();
   }
 
-  contentFunction(header, content, closeModal);
+  contentFunction(header, content, closeModal, firstInfo, secondInfo);
   modal.appendChild(header);
   modal.appendChild(content);
 
@@ -874,31 +924,8 @@ function buildAppBinaryInfoRequestData(appId, versionCode) {
 }
 
 async function openURI(uri, important) {
-  try {
-    const response = await fetch(uri, {
-      method: "HEAD",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    });
-
-    if (response.ok) {
-      window.open(uri, "_blank");
-    } else {
-      console.info(
-        "Couldn't access " + uri + " because you probably haven't purchased it",
-      );
-      if (important) {
-        const customContent = (header, _) => {
-          const headerText = document.createTextNode(
-            "It seems like DownQuest wasn't able to generate all required download links. This is most likely the case because you don't own the content or have been logged out.",
-          );
-          header.appendChild(headerText);
-        };
-        showModal("Info", customContent);
-      }
-    }
-  } catch (error) {
-    console.error("Network error:", error);
-  }
+  console.log("Attempting to download: ", uri);
+  window.open(uri, "_blank");
 }
 
 function createProgressIndicator(parent) {
