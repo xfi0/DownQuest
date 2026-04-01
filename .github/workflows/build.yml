@@ -1,4 +1,5 @@
 name: Zip on major release
+
 on:
   workflow_dispatch:
   push:
@@ -19,3 +20,4 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: DownQ.zip
+          tag_name: ${{ github.ref_name || 'manual-build' }}
