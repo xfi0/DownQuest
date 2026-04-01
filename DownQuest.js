@@ -1,4 +1,5 @@
 const oculusStoreAccessToken = "OC|752908224809889|";
+const idRegex = /^[0-9]{1,100}$/;
 let accessToken = "";
 let applicationID = null;
 let dlcs = [];
@@ -32,12 +33,13 @@ function handleURLChange(newUrl) {
     clearExistingButtons();
   }
 
-  if (document.querySelector('.downquest-button-container')) {
-      return;
+  if (document.querySelector(".downquest-button-container")) {
+    return;
   }
 
   const pathSegments = getPathSegments();
   if (!shouldShowButtons(pathSegments)) return;
+  console.log("Showing buttons, path segments: ", pathSegments);
 
   createFloatingButtons();
 
@@ -50,7 +52,7 @@ function handleURLChange(newUrl) {
 
 function getPathSegments() {
   const path = window.location.pathname;
-  const cleanedPath = path.endsWith('/') ? path.slice(0, -1) : path;
+  const cleanedPath = path.endsWith("/") ? path.slice(0, -1) : path;
   const segments = cleanedPath.split("/").filter(Boolean);
 
   if (segments.length > 0 && segments[0].match(/^([a-z]{2}(-[a-z]{2})?)$/i)) {
@@ -64,13 +66,13 @@ function shouldShowButtons(pathSegments) {
     return false;
   }
 
-  if (pathSegments.length < 2) {
-      return false;
+  if (pathSegments.length < 1) {
+    return false;
   }
 
   const secondSegment = pathSegments[1];
-
-  if (secondSegment === "pcvr") {
+  if (idRegex.test(secondSegment)) return true;
+  else if (secondSegment === "pcvr") {
     if (pathSegments.length < 4) return false;
     const thirdSegment = pathSegments[2];
     if (["view", "section", "search"].includes(thirdSegment)) return false;
@@ -87,15 +89,19 @@ function determineApplicationID(pathSegments) {
       return pathSegments[3];
     }
   } else {
-    if (pathSegments.length >= 3) {
-      return pathSegments[2];
+    if (pathSegments.length >= 3) return pathSegments[2];
+
+    if (pathSegments.length === 2) {
+      console.log("1");
+      return pathSegments[1];
     }
   }
   return null;
 }
 
 function clearExistingButtons() {
-  document.querySelectorAll(".downquest-button-container")
+  document
+    .querySelectorAll(".downquest-button-container")
     .forEach((container) => container.remove());
 }
 
@@ -135,7 +141,7 @@ function createFloatingButtons() {
         showModal(modalTitle, contentFunction, true);
       });
       container.appendChild(button);
-    }
+    },
   );
 
   document.body.appendChild(container);
@@ -160,6 +166,10 @@ async function fetchChannelData() {
 
   try {
     const response = await sendGraphQLRequest(requestData);
+    if (!response.data.node) {
+      console.log("Failed to fetch channel data, response data node was null.");
+      return;
+    }
     channelDataCache = response.data.node.release_channels.nodes.map(
       (node) => ({
         id: node.id,
@@ -180,9 +190,9 @@ async function fetchChannelData() {
 
 async function fetchDLCData() {
   if (!applicationID) {
-      dlcs = [];
-      dlcDataCache = [];
-      return;
+    dlcs = [];
+    dlcDataCache = [];
+    return;
   }
   if (dlcDataCache) {
     dlcs = dlcDataCache;
@@ -200,36 +210,42 @@ async function fetchDLCData() {
 
   try {
     const response = await sendGraphQLRequest(requestData);
-    const iapItemsContainer = response?.data?.node?.latest_supported_binary?.firstIapItems;
+    const iapItemsContainer =
+      response?.data?.node?.latest_supported_binary?.firstIapItems;
 
     if (!iapItemsContainer || !Array.isArray(iapItemsContainer.edges)) {
       dlcs = [];
       dlcDataCache = [];
-      console.info("No DLC data found or DLC structure is empty for this application.");
+      console.info(
+        "No DLC data found or DLC structure is empty for this application.",
+      );
       return;
     }
 
-    dlcs = iapItemsContainer.edges.map(
-      (edge) => {
-        const node = edge.node;
-        if (node.latest_supported_asset_file) {
-          return [
-            "asset",
-            node.id,
-            node.display_name,
-            node.latest_supported_asset_file.id,
-          ];
-        } else if (node.bundle_items) {
-          const bundle = node.bundle_items.edges.map((bundleEdge) => bundleEdge.node.id);
-          return ["bundle", node.id, node.display_name, bundle];
-        } else {
-          return [null, node.id, node.display_name];
-        }
-      },
-    );
+    dlcs = iapItemsContainer.edges.map((edge) => {
+      const node = edge.node;
+      if (node.latest_supported_asset_file) {
+        return [
+          "asset",
+          node.id,
+          node.display_name,
+          node.latest_supported_asset_file.id,
+        ];
+      } else if (node.bundle_items) {
+        const bundle = node.bundle_items.edges.map(
+          (bundleEdge) => bundleEdge.node.id,
+        );
+        return ["bundle", node.id, node.display_name, bundle];
+      } else {
+        return [null, node.id, node.display_name];
+      }
+    });
     dlcDataCache = dlcs;
   } catch (error) {
-    console.error("Failed to fetch DLC data due to an unexpected error:", error);
+    console.error(
+      "Failed to fetch DLC data due to an unexpected error:",
+      error,
+    );
     dlcs = [];
     dlcDataCache = [];
   }
@@ -283,55 +299,59 @@ function createDownloadButton(dlc) {
     downloadButton.innerText = "Download";
     downloadButton.addEventListener("click", () => downloadBuild(dlc[3]));
     return downloadButton;
-  }
-  else if (dlc[0] === "bundle" && Array.isArray(dlc[3])) {
+  } else if (dlc[0] === "bundle" && Array.isArray(dlc[3])) {
     const viewBundleButton = document.createElement("button");
     viewBundleButton.className = "custom-button";
     viewBundleButton.style.marginLeft = "10px";
     viewBundleButton.innerText = "View Items";
     viewBundleButton.addEventListener("click", () => {
-      showModal(`Items in Bundle: ${dlc[2] || 'Unnamed Bundle'}`, (header, contentContainer) => {
-        if (header) header.remove();
+      showModal(
+        `Items in Bundle: ${dlc[2] || "Unnamed Bundle"}`,
+        (header, contentContainer) => {
+          if (header) header.remove();
 
-        while (contentContainer.firstChild) {
-          contentContainer.removeChild(contentContainer.firstChild);
-        }
-        contentContainer.className = 'dlc-list';
-
-        let itemsFound = false;
-        dlc[3].forEach((id) => {
-          const matchingDLC = dlcs.find((tmpDLC) => tmpDLC && tmpDLC[1] === id && tmpDLC[0] === "asset");
-          if (matchingDLC && matchingDLC[3]) {
-            itemsFound = true;
-            createVersion(
-              contentContainer,
-              null,
-              matchingDLC[2],
-              matchingDLC[3],
-              null,
-              null
-            );
+          while (contentContainer.firstChild) {
+            contentContainer.removeChild(contentContainer.firstChild);
           }
-        });
+          contentContainer.className = "dlc-list";
 
-        if (!itemsFound) {
-          const noItemsMessage = document.createElement("div");
-          noItemsMessage.className = "no-dlc-message";
-          noItemsMessage.textContent = "No downloadable asset items found in this bundle.";
-          contentContainer.appendChild(noItemsMessage);
-        }
-      });
+          let itemsFound = false;
+          dlc[3].forEach((id) => {
+            const matchingDLC = dlcs.find(
+              (tmpDLC) => tmpDLC && tmpDLC[1] === id && tmpDLC[0] === "asset",
+            );
+            if (matchingDLC && matchingDLC[3]) {
+              itemsFound = true;
+              createVersion(
+                contentContainer,
+                null,
+                matchingDLC[2],
+                matchingDLC[3],
+                null,
+                null,
+              );
+            }
+          });
+
+          if (!itemsFound) {
+            const noItemsMessage = document.createElement("div");
+            noItemsMessage.className = "no-dlc-message";
+            noItemsMessage.textContent =
+              "No downloadable asset items found in this bundle.";
+            contentContainer.appendChild(noItemsMessage);
+          }
+        },
+      );
     });
     return viewBundleButton;
-  }
-  else {
+  } else {
     return null;
   }
 }
 
 function displayDowngradeOptions(header, versions) {
   // Clear previous header/versions content
-  header.textContent = ''; // Simpler clearing for text/elements
+  header.textContent = ""; // Simpler clearing for text/elements
   while (versions.firstChild) {
     versions.removeChild(versions.firstChild);
   }
@@ -350,67 +370,69 @@ function displayDowngradeOptions(header, versions) {
 }
 
 function createChannelDropdownToggle(header, versions) {
-  fetchChannelData().then((channels) => {
-    const existingDropdown = header.querySelector('.dropdown');
-    if (existingDropdown) existingDropdown.remove();
-    const existingMsg = header.querySelector('.no-channels-message');
-    if(existingMsg) existingMsg.remove();
+  fetchChannelData()
+    .then((channels) => {
+      const existingDropdown = header.querySelector(".dropdown");
+      if (existingDropdown) existingDropdown.remove();
+      const existingMsg = header.querySelector(".no-channels-message");
+      if (existingMsg) existingMsg.remove();
 
-    while (versions.firstChild) {
-      versions.removeChild(versions.firstChild);
-    }
-
-    if (!channels || channels.length === 0) {
-      const noChannelsMsg = document.createElement("span");
-      noChannelsMsg.textContent = " No channels available.";
-      noChannelsMsg.style.marginLeft = '5px';
-      noChannelsMsg.className = 'no-channels-message';
-      header.appendChild(noChannelsMsg);
-
-      const noVersionsMessage = document.createElement('div');
-      noVersionsMessage.className = "no-dlc-message";
-      noVersionsMessage.textContent = "No release channels found.";
-      versions.appendChild(noVersionsMessage);
-      return;
-    }
-
-    const dropdown = document.createElement("select");
-    dropdown.className = "dropdown";
-
-    channels.forEach((channel) => {
-      const option = document.createElement("option");
-      option.value = channel.id;
-      option.textContent = channel.name;
-      dropdown.appendChild(option);
-    });
-
-    const loadingMsg = document.createElement('div');
-    loadingMsg.textContent = 'Loading versions...';
-    versions.appendChild(loadingMsg);
-    fetchVersions(channels[0].id, versions);
-
-    dropdown.addEventListener("change", () => {
-      const selectedChannelId = dropdown.value;
       while (versions.firstChild) {
         versions.removeChild(versions.firstChild);
       }
-      const loadingMsgChange = document.createElement('div');
-      loadingMsgChange.textContent = 'Loading versions...';
-      versions.appendChild(loadingMsgChange);
-      fetchVersions(selectedChannelId, versions);
-    });
 
-    header.appendChild(dropdown);
-  }).catch(error => {
-    console.error("Error setting up channel dropdown:", error);
-    while (versions.firstChild) {
-      versions.removeChild(versions.firstChild);
-    }
-    const errorMsg = document.createElement('div');
-    errorMsg.className = "no-dlc-message";
-    errorMsg.textContent = "Error loading channels.";
-    versions.appendChild(errorMsg);
-  });
+      if (!channels || channels.length === 0) {
+        const noChannelsMsg = document.createElement("span");
+        noChannelsMsg.textContent = " No channels available.";
+        noChannelsMsg.style.marginLeft = "5px";
+        noChannelsMsg.className = "no-channels-message";
+        header.appendChild(noChannelsMsg);
+
+        const noVersionsMessage = document.createElement("div");
+        noVersionsMessage.className = "no-dlc-message";
+        noVersionsMessage.textContent = "No release channels found.";
+        versions.appendChild(noVersionsMessage);
+        return;
+      }
+
+      const dropdown = document.createElement("select");
+      dropdown.className = "dropdown";
+
+      channels.forEach((channel) => {
+        const option = document.createElement("option");
+        option.value = channel.id;
+        option.textContent = channel.name;
+        dropdown.appendChild(option);
+      });
+
+      const loadingMsg = document.createElement("div");
+      loadingMsg.textContent = "Loading versions...";
+      versions.appendChild(loadingMsg);
+      fetchVersions(channels[0].id, versions);
+
+      dropdown.addEventListener("change", () => {
+        const selectedChannelId = dropdown.value;
+        while (versions.firstChild) {
+          versions.removeChild(versions.firstChild);
+        }
+        const loadingMsgChange = document.createElement("div");
+        loadingMsgChange.textContent = "Loading versions...";
+        versions.appendChild(loadingMsgChange);
+        fetchVersions(selectedChannelId, versions);
+      });
+
+      header.appendChild(dropdown);
+    })
+    .catch((error) => {
+      console.error("Error setting up channel dropdown:", error);
+      while (versions.firstChild) {
+        versions.removeChild(versions.firstChild);
+      }
+      const errorMsg = document.createElement("div");
+      errorMsg.className = "no-dlc-message";
+      errorMsg.textContent = "Error loading channels.";
+      versions.appendChild(errorMsg);
+    });
 }
 
 const zIndexBase = 1000;
@@ -473,8 +495,8 @@ async function fetchVersions(channelId, versionsContainer = null) {
     while (versionsContainer.firstChild) {
       versionsContainer.removeChild(versionsContainer.firstChild);
     }
-    const loadingMsg = document.createElement('div');
-    loadingMsg.textContent = 'Fetching versions...';
+    const loadingMsg = document.createElement("div");
+    loadingMsg.textContent = "Fetching versions...";
     versionsContainer.appendChild(loadingMsg);
   }
 
@@ -493,17 +515,19 @@ async function fetchVersions(channelId, versionsContainer = null) {
       return [];
     }
 
-    const versionList = edges.map((edge) => {
-      const node = edge?.node;
-      if (!node) return null;
-      return {
-        version: node.version || 'N/A',
-        changeLog: node.change_log || '',
-        id: node.id,
-        obb: node.obb_binary,
-        versionCode: node.version_code
-      };
-    }).filter(Boolean);
+    const versionList = edges
+      .map((edge) => {
+        const node = edge?.node;
+        if (!node) return null;
+        return {
+          version: node.version || "N/A",
+          changeLog: node.change_log || "",
+          id: node.id,
+          obb: node.obb_binary,
+          versionCode: node.version_code,
+        };
+      })
+      .filter(Boolean);
 
     versionDataCache[channelId] = versionList;
     if (versionsContainer) {
@@ -516,10 +540,10 @@ async function fetchVersions(channelId, versionsContainer = null) {
       while (versionsContainer.firstChild) {
         versionsContainer.removeChild(versionsContainer.firstChild);
       }
-      const errorMsg = document.createElement('div');
+      const errorMsg = document.createElement("div");
       errorMsg.className = "no-dlc-message";
       errorMsg.textContent = "Error fetching versions.";
-      errorMsg.style.color = 'red';
+      errorMsg.style.color = "red";
       versionsContainer.appendChild(errorMsg);
     }
     versionDataCache[channelId] = undefined;
@@ -531,7 +555,7 @@ function displayVersions(versionList, versionsContainer) {
   while (versionsContainer.firstChild) {
     versionsContainer.removeChild(versionsContainer.firstChild);
   }
-  versionsContainer.className = 'downgrade-section';
+  versionsContainer.className = "downgrade-section";
 
   if (!versionList || versionList.length === 0) {
     const noVersionsMessage = document.createElement("div");
@@ -547,7 +571,7 @@ function displayVersions(versionList, versionsContainer) {
         version.changeLog,
         version.id,
         version.obb,
-        version.versionCode
+        version.versionCode,
       );
     });
   }
@@ -600,7 +624,14 @@ function sendGraphQLRequest(requestData) {
   });
 }
 
-function createVersion(parentContainer, version, changeLog, id, obb, versionCode) {
+function createVersion(
+  parentContainer,
+  version,
+  changeLog,
+  id,
+  obb,
+  versionCode,
+) {
   const versionRow = document.createElement("div");
   versionRow.className = "list-item";
 
@@ -608,7 +639,7 @@ function createVersion(parentContainer, version, changeLog, id, obb, versionCode
   infoDiv.className = "list-item-info";
 
   let primaryText = "";
-  if (version && version !== 'N/A') {
+  if (version && version !== "N/A") {
     primaryText = `Version: ${version}`;
     if (versionCode) primaryText += ` (Code: ${versionCode})`;
   } else if (versionCode) {
@@ -621,7 +652,7 @@ function createVersion(parentContainer, version, changeLog, id, obb, versionCode
 
   if (changeLog) {
     const changeLogSpan = document.createElement("span");
-    changeLogSpan.textContent = `Changelog: ${changeLog || '–'}`;
+    changeLogSpan.textContent = `Changelog: ${changeLog || "–"}`;
     infoDiv.appendChild(changeLogSpan);
   }
 
@@ -895,7 +926,7 @@ function getSegmentURI(binaryId, segmentSha256) {
 }
 
 function startDrag(e) {
-  if (e.button !== 0 || e.target.tagName === 'BUTTON') return;
+  if (e.button !== 0 || e.target.tagName === "BUTTON") return;
 
   draggedElement = e.currentTarget;
   isDragging = true;
@@ -906,9 +937,9 @@ function startDrag(e) {
   offsetX = e.clientX - rect.left;
   offsetY = e.clientY - rect.top;
 
-  draggedElement.style.position = 'fixed';
-  draggedElement.style.bottom = 'auto'; // Override initial bottom/right
-  draggedElement.style.right = 'auto';
+  draggedElement.style.position = "fixed";
+  draggedElement.style.bottom = "auto"; // Override initial bottom/right
+  draggedElement.style.right = "auto";
   draggedElement.style.left = `${rect.left}px`;
   draggedElement.style.top = `${rect.top}px`;
 
@@ -926,8 +957,14 @@ function handleDrag(e) {
   let newY = e.clientY - offsetY;
 
   const PADDING = 5;
-  newX = Math.max(PADDING, Math.min(newX, window.innerWidth - draggedElement.offsetWidth - PADDING));
-  newY = Math.max(PADDING, Math.min(newY, window.innerHeight - draggedElement.offsetHeight - PADDING));
+  newX = Math.max(
+    PADDING,
+    Math.min(newX, window.innerWidth - draggedElement.offsetWidth - PADDING),
+  );
+  newY = Math.max(
+    PADDING,
+    Math.min(newY, window.innerHeight - draggedElement.offsetHeight - PADDING),
+  );
 
   draggedElement.style.left = `${newX}px`;
   draggedElement.style.top = `${newY}px`;
@@ -944,7 +981,9 @@ function stopDrag() {
   document.removeEventListener("mousemove", handleDrag);
   document.removeEventListener("mouseup", stopDrag);
 
-  setTimeout(() => { didDragOccur = false; }, 0);
+  setTimeout(() => {
+    didDragOccur = false;
+  }, 0);
 
   draggedElement = null;
 }
