@@ -1,32 +1,38 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "DownQ",
   "description": "Your unofficial companion for managing Meta Quest game versions. Download specific releases, downgrade, and access DLCs with ease.",
   "version": "1.5.2",
   "browser_specific_settings": {
     "gecko": {
       "id": "downquest@extension",
-      "strict_min_version": "109.0"
+      "strict_min_version": "109.0",
+      "data_collection_permissions": {
+        "required": ["none"],
+        "optional": []
+      }
     }
   },
+
   "icons": {
     "16": "icon16.png",
     "32": "icon32.png",
     "48": "icon48.png",
     "128": "icon128.png"
   },
-  "permissions": [
-    "cookies",
-    "tabs",
-    "webRequest",
-    "webRequestBlocking",
-    "*://*.oculus.com/*",
-    "*://*.meta.com/*"
-  ],
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "ruleset_1",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  },
+  "permissions": ["cookies", "tabs", "declarativeNetRequest"],
   "host_permissions": ["*://*.oculus.com/*", "*://*.meta.com/*"],
   "background": {
-    "scripts": ["CookieMonster.js"],
-    "persistent": true
+    "scripts": ["CookieMonster.js"]
   },
   "content_scripts": [
     {
