@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "DownQ",
   "description": "Your unofficial companion for managing Meta Quest game versions. Download specific releases, downgrade, and access DLCs with ease.",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "browser_specific_settings": {
     "gecko": {
       "id": "downquest@extension",
