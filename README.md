@@ -15,9 +15,9 @@ DownQuest is available for the following browsers:
 
 - [Google Chrome](https://chrome.google.com/webstore/detail/downquest/clocmpojdjmikkaepgkmplgooejmnchb)
 - [Microsoft Edge](https://microsoftedge.microsoft.com/addons/detail/downquest/kehkjfaenkdikagphlaphoeekoodffif)
-- [FireFox] Coming Soon!
+- [FireFox](https://addons.mozilla.org/en-US/firefox/addon/downq)
 > [!NOTE]  
-> DownQuest is not currently supported on Firefox. Brave and Opera browsers may have filesystem API UI issues that prevent PCVR downloads.
+> Brave and Opera browsers may have filesystem API UI issues that prevent PCVR downloads.
 
 ## Usage
 
